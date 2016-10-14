@@ -1,4 +1,4 @@
-(defproject mattscript "0.1.0-SNAPSHOT"
+(defproject mattyscript "0.1.0-SNAPSHOT"
   :description "Lisp to JS Compiler"
   :url "http://example.com/FIXME"
   :license {:name "Eclipse Public License"
