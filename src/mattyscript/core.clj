@@ -4,43 +4,6 @@
             )
   (:refer-clojure :exclude [compile]))
 
-(import java.io.File)
-
-(def project-version (-> "project.clj" slurp read-string (nth 2)))
-
-(defn spit-script [dir ns s]
-  (let [
-         elements (.split (str ns) "\\.")
-         parent (apply str (interpose "/" (concat [dir] elements)))
-         f (str parent "/index.js")
-         ]
-    (.mkdirs (File. parent))
-    (spit f (format "//Compiled by Mattyscript %s\n%s" project-version s))))
-
-(defn read-file [f]
-  (read-string (format "[%s]" (slurp f))))
-
-(defn subdirs [f]
-  (filter #(.isDirectory %) (file-seq (File. f))))
-
-(defn safe-watcher
-  "watcher that avoids duplicate calls in close succession"
-  [paths handler]
-  (let [
-         recent (atom #{})
-         handler2 (fn [ctx e]
-                    (when-not (@recent e)
-                      (swap! recent conj e)
-                      (future
-                        (Thread/sleep 100)
-                        (swap! recent disj e))
-                      (try (handler e) (catch Exception e (println e)))))
-         ]
-    (hawk/watch! [{:paths (mapcat subdirs paths)
-                   :filter (fn [_ {:keys [file]}] (and (.isFile file) (.endsWith (.getName file) ".clj")))
-                   :handler handler2}])))
-
-(declare handler)
 (declare compile)
 (defonce watcher (safe-watcher ["src-mattyscript"] #'handler))
 
@@ -64,11 +27,16 @@
 (defn compile-symbol [symbol]
   (reduce (fn [s [a b]] (.replace s a b)) (str symbol) special-symbols))
 
-(def special-forms '{+ " + " - " - " / " / " * " * " and " && " or " || "})
+(def special-forms '{+ " + " - " - " / " / " * " * " and " && " or " || " not= " != " = " == "
+                     > " > " >= " >= " <= " <= "
+                     })
+
 (defn compile-special-form [type args]
-  ;(println "compile-special-form" type args)
-  (apply str
-         (interpose (special-forms type) (map #(str "(" (compile %) ")") args))))
+  (let [p #(if (coll? %) (format "(%s)" (compile %)) (compile %))]
+    (if (and (= '- type) (= 1 (count args)))
+      (str "- " (compile (first args)))
+      (apply str
+             (interpose (special-forms type) (map p args))))))
 
 ;;
 ;; Destructure variable binding
@@ -181,6 +149,78 @@
 (defn compile-let [[binding-vector & body]]
   (format "(function() {\n%s%s}())" (compile-let-args binding-vector) (do-statements body)))
 
+(defn compile-get [[m k alt]]
+  (if alt
+    (format "(%s[%s] || %s)" (compile m) (compile k) (compile alt))
+    (format "%s[%s]" (compile m) (compile k))))
+
+(defn compile-get-in [[m v alt]]
+  (let [
+         prefix (apply str (compile m) (map #(format "[%s]" (compile %)) v))
+         ]
+    (if alt
+      (format "(%s || %s)" prefix (compile alt))
+      prefix)))
+;;
+;; for and doseq
+;;
+(defn parse-bindings [v]
+  (let [
+         v (partition 2 v)
+         ]
+    (loop [
+            done []
+            curr {}
+            todo v
+            ]
+      (if-let [[k v] (first todo)]
+        (cond
+          (keyword? k)
+          (recur done (assoc curr k v) (next todo))
+          (empty? curr)
+          (recur done {:bindings k :seq v} (next todo))
+          :default
+          (recur (conj done curr) {} todo))
+        (conj done curr)))))
+
+(defn named-format [s m]
+  (reduce (fn [s [k v]] (.replace s (str k) (str v))) s m))
+(defmacro keyzip [& syms]
+  `(zipmap ~(mapv keyword syms) ~(vec syms)))
+
+(defn compile-ring [array [{:keys [bindings seq while when] sublet :let} & rings] body]
+  (let [
+         parent-var (gensym "parent_")
+         index-var (gensym "index_")
+         parent-binding (format "var %s = %s\n" parent-var (compile seq))
+         sublet (concat [bindings `(~'get ~parent-var ~index-var)] sublet)
+         sublet (compile-let-args sublet)
+         while-clause (if while (format "if (!(%s)) break\n" (compile while)))
+         when-clause (if when (format "if (!(%s)) continue\n" (compile when)))
+         body (cond
+                (not-empty rings) (compile-ring array rings body)
+                array (format "%s.push(%s)" array (compile body))
+                :default (apply str (interpose "\n" (map compile body))))
+         ]
+    (named-format ":parent-bindingfor(var :index-var = 0; :index-var < :parent-var.length; :index-var++) {
+                  :sublet:while-clause:when-clause:body}"
+                  (keyzip parent-binding parent-var index-var sublet body while-clause when-clause))))
+
+
+(defn compile-doseq [[bindings & body]]
+  (format "(function() {%s}())" (compile-ring nil (parse-bindings bindings) body)))
+
+(defn compile-for [[bindings body]]
+  (let [array (str (gensym "array_"))]
+    (format "(function() {
+            var %s = []
+            %s
+            return %s}())" array (compile-ring array (parse-bindings bindings) body) array)))
+
+;;
+;; end for, doseq
+;;
+
 (defn compile-seq [[type & args :as form]]
   ;(println "compile-seq" form)
   (cond
@@ -233,6 +273,7 @@
         when-not clojure.core/when-not
         -> clojure.core/->
         ->> clojure.core/->>
+        if-not
         } type)
     (compile-seq (macroexpand-1 form))
     ;;
@@ -246,6 +287,26 @@
     ('#{let clojure.core/let} type)
     (compile-let args)
     ;;
+    ;; get, get-in
+    ;;
+    ('#{get clojure.core/get} type)
+    (compile-get args)
+    ('#{get-in clojure.core/get-in} type)
+    (compile-get-in args)
+    ;;
+    ;; for, doseq
+    ;;
+    (= 'doseq type)
+    (compile-doseq args)
+    (= 'for type)
+    (compile-for args)
+    ;;
+    ;; not
+    ;;
+    (= 'not type)
+    (let [[x] args]
+      (format "!(%s)" (compile x)))
+    ;;
     ;; special forms (||, + etc)
     ;;
     (special-forms type)
@@ -257,11 +318,16 @@
     (compile-invoke form)
     ))
 
-(defn compile-vector [v]
-  (format "[%s]" (apply str (interpose ", " (map compile v)))))
+(defn compile-vector [[kw & rest :as v]]
+  (if (keyword? kw)
+    (compile-invoke (concat ['h (name kw)] rest))
+    (format "[%s]" (apply str (interpose ", " (map compile v))))))
 
 (defn compile-map [m]
   (format "{%s}" (apply str (interpose ", " (map (fn [[k v]] (str (compile k) ": " (compile v))) m)))))
+
+(defn compile-set [s]
+  (format "{%s}" (apply str (interpose ", " (map #(let [s (compile %)] (str s ": " s)) s)))))
 
 (defn compile [form]
   (cond
@@ -276,6 +342,8 @@
     (compile-vector form)
     (map? form)
     (compile-map form)
+    (set? form)
+    (compile-set form)
     (keyword? form)
     (pr-str (name form))
     :default
@@ -286,12 +354,5 @@
   (spit "test.html" (format (slurp "test.html.template") s)))
 
 (print-copy
-  (compile '(console.log {:hi 3})))
+  (compile '[:h3 {:style {:font "normal"}}]))
 
-(defn handler [{:keys [file]}]
-  (println "handling" file)
-  (let [
-         [[_ ns] & forms] (read-file file)
-
-         ]
-    (spit-script "out" ns "hihi")))
