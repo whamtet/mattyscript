@@ -1,6 +1,7 @@
 (ns mattyscript.core
   (:require [hawk.core :as hawk]
             [mattyscript.util :as util]
+            [clojure.walk :as walk]
             )
   (:refer-clojure :exclude [compile]))
 
@@ -8,12 +9,13 @@
 
 (defn export-format [form s & args]
   (let [
-         prefix (if (:export (meta form)) "export " "")
+         {:keys [export default]} (meta form)
+         prefix
+         (cond
+           (and export default) "export default "
+           export "export ")
          ]
     (str prefix (apply format s args))))
-
-#_(defn interpose-lines [lines]
-    (apply str (interpose "\n" (filter identity lines))))
 
 (defn map-str [f & args]
   (apply str (apply map f args)))
@@ -134,12 +136,27 @@
 
 (defn compile-invoke [form]
   (let [
+         form (map compile form)
+         [method obj & method-args] form
+         method (str method)
+         [f & args] form
+         ]
+    (cond
+      (.startsWith method "._")
+      (format "%s.%s" obj (.substring method 2))
+      (.startsWith method ".")
+      (format "%s%s(%s)" obj method (apply str (interpose ", " method-args)))
+      :default
+      (format "%s(%s)" f (apply str (interpose ", " args))))))
+
+#_(defn compile-invoke [form]
+  (let [
          [dot obj method & method-args] (macroexpand-1 form)
          [f & args] form
          ]
     (if (= '. dot)
       (format "%s.%s(%s)" (compile obj) method (apply str (interpose ", " (map compile method-args))))
-      (format "%s(%s)\n" (compile f) (apply str (interpose ", " (map compile args)))))))
+      (format "%s(%s)" (compile f) (apply str (interpose ", " (map compile args)))))))
 
 (defn compile-if [[cond then else]]
   (if else
@@ -216,7 +233,6 @@
             var %s = []
             %s
             return %s}())" array (compile-ring array (parse-bindings bindings) body) array)))
-
 ;;
 ;; end for, doseq
 ;;
@@ -235,6 +251,8 @@
                 %s.unshift(%s)
                 return %s.apply(null, %s)}())" temp-var (last args) temp-var unshift-args f temp-var)))))
 
+(defn compile-throw [[error]]
+  (format "throw new Error('%s')" (pr-str error)))
 
 (defn compile-seq [[type & args :as form]]
   ;(println "compile-seq" form)
@@ -244,26 +262,26 @@
     ;;
     (= 'def type)
     (let [[a b] args]
-      (export-format form "var %s = %s\n" a (compile b)))
+      (export-format a "var %s = %s\n" (compile a) (compile b)))
     ;;
     ;; set
     ;;
     (= 'set! type)
     (let [[a b] args]
-      (format "%s = %s\n" a (compile b)))
+      (format "%s = %s\n" (compile a) (compile b)))
     ;;
     ;; import
     ;;
     (= 'import type)
-    (let [[path _ imports] args
+    (let [[path imports] args
           args (apply str (interpose ", " imports))]
-      (export-format form "import { %s } from '%s'\n" args path))
+      (format "import { %s } from '%s'\n" args path))
     ;;
     ;; class
     ;;
     (= 'class type)
     (let [[name superclass & methods] args]
-      (export-format form "class %s extends %s {\n\n%s}" name superclass (map-str compile-fn methods)))
+      (export-format name "class %s extends %s {\n\n%s}" name superclass (map-str compile-fn methods)))
     ;;
     ;; fn
     ;;
@@ -274,23 +292,12 @@
     ;;
     (= 'defn type)
     (let [[name & args] args]
-      (export-format form "var %s = %s\n" name (compile-fn (conj args 'fn))))
+      (export-format name "var %s = %s\n" (compile name) (compile-fn (conj args 'fn))))
     ;;
     ;; do
     ;;
     (= 'do type)
     (compile-do args)
-    ;;
-    ;; macros
-    ;;
-    ('#{cond clojure.core/cond
-        when clojure.core/when
-        when-not clojure.core/when-not
-        -> clojure.core/->
-        ->> clojure.core/->>
-        if-not
-        } type)
-    (compile-seq (macroexpand-1 form))
     ;;
     ;; if
     ;;
@@ -327,6 +334,16 @@
     (= 'apply type)
     (compile-apply args)
     ;;
+    ;; literal
+    ;;
+    (= 'literal type)
+    (first args)
+    ;;
+    ;; throw
+    ;;
+    (= 'throw type)
+    (compile-throw args)
+    ;;
     ;; special forms (||, + etc)
     ;;
     (special-forms type)
@@ -338,9 +355,13 @@
     (compile-invoke form)
     ))
 
+(defn symbolize [s]
+  (let [s (name s)]
+    (if (= s (.toLowerCase s)) s (symbol s))))
+
 (defn compile-vector [[kw & rest :as v]]
   (if (keyword? kw)
-    (compile-invoke (concat ['h (name kw)] rest))
+    (compile-invoke (concat ['h (symbolize kw)] rest))
     (format "[%s]" (apply str (interpose ", " (map compile v))))))
 
 (defn compile-map [m]
@@ -369,13 +390,30 @@
     :default
     (str form)))
 
+(defn macroexpand-special [form]
+  (if (and
+        (seq? form)
+        ('#{cond clojure.core/cond
+            when clojure.core/when
+            when-not clojure.core/when-not
+            -> clojure.core/->
+            ->> clojure.core/->>
+            if-not
+            } (first form)))
+    (macroexpand-special (macroexpand-1 form))
+    form))
+
+(defn expand-compile [form]
+  (compile (walk/prewalk macroexpand-special form)))
+
 (defn print-copy [s]
   (println s)
   (spit "test.html" (format (slurp "test.html.template") s)))
 
-(print-copy
-  (compile '(do
-              (defn sum [& x] (.reduce x #(+ %1 %2)))
-              (console.log (apply sum 1 2 [3 4]))
-              )))
+(defn read-file [f]
+  (read-string (format "[%s]" (slurp f))))
 
+(defn compile-file [f]
+  (apply str (interpose "\n" (map expand-compile (rest (read-file f))))))
+
+(spit "../taipan-preact/src/components/app.js" (compile-file "src-mattyscript/app.clj"))

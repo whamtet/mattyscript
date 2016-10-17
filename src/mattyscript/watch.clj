@@ -7,17 +7,21 @@
 
 (def project-version (-> "project.clj" slurp read-string (nth 2)))
 
-(defn spit-script [dir ns s]
+(defn read-file [f]
+  (read-string (format "[%s]" (slurp f))))
+
+(defn spit-script [dir ns target-index? s]
   (let [
          elements (.split (str ns) "\\.")
-         parent (apply str (interpose "/" (concat [dir] elements)))
-         f (str parent "/index.js")
+         parent (if target-index?
+                  (apply str (interpose "/" (concat [dir] elements)))
+                  (apply str (interpose "/" (concat [dir] (butlast elements)))))
+         f (if target-index?
+             (str parent "/index.js")
+             (str parent "/" (last elements) ".js"))
          ]
     (.mkdirs (File. parent))
     (spit f (format "//Compiled by Mattyscript %s\n%s" project-version s))))
-
-(defn read-file [f]
-  (read-string (format "[%s]" (slurp f))))
 
 (defn subdirs [f]
   (filter #(.isDirectory %) (file-seq (File. f))))
@@ -36,14 +40,15 @@
                       (try (handler e) (catch Exception e (println e)))))
          ]
     (hawk/watch! [{:paths (mapcat subdirs paths)
-                   :filter (fn [_ {:keys [file]}] (and (.isFile file) (.endsWith (.getName file) ".clj")))
+                   :filter (fn [_ {:keys [file kind]}] (and (= :modify kind) (.isFile file) (.endsWith (.getName file) ".clj")))
                    :handler handler2}])))
 
 (defn handler [{:keys [file]}]
   (println "handling" file)
   (let [
-         [[_ ns] & forms] (read-file file)
+         [[_ ns & ns-opts] & forms] (read-file file)
+         target-index? (some #(and (coll? %) (= :index (first %))) ns-opts)
          ]
-    (spit-script "out" ns "hihi")))
+    (spit-script "../taipan-preact/src/components" ns target-index? (apply str (interpose "\n" (map core/expand-compile forms))))))
 
-(defonce watcher (safe-watcher ["src-mattyscript"] #'handler))
+(defonce watcher3 (safe-watcher ["../src-mattyscript"] #'handler))
