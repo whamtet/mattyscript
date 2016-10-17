@@ -45,3 +45,5 @@
          [[_ ns] & forms] (read-file file)
          ]
     (spit-script "out" ns "hihi")))
+
+(defonce watcher (safe-watcher ["src-mattyscript"] #'handler))

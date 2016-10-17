@@ -5,7 +5,6 @@
   (:refer-clojure :exclude [compile]))
 
 (declare compile)
-(defonce watcher (safe-watcher ["src-mattyscript"] #'handler))
 
 (defn export-format [form s & args]
   (let [
@@ -124,9 +123,10 @@
          (if (vector? name)
            ["function" name (conj forms arg-list)]
            [name arg-list forms])
+         simple-binding? #(and (not= '& %) (symbol? %))
          ]
-    (if (every? symbol? arg-list)
-      (format "%s(%s){\n%s}\n" name (apply str (interpose ", " arg-list)) (do-statements forms))
+    (if (every? simple-binding? arg-list)
+      (format "%s(%s){\n%s}\n" name (apply str (interpose ", " (map compile-symbol arg-list))) (do-statements forms))
       (format "%s(){\n%s%s}\n" name (compile-arg-list arg-list) (do-statements forms)))))
 
 (defn compile-do [statements]
@@ -221,6 +221,21 @@
 ;; end for, doseq
 ;;
 
+(defn compile-apply [args]
+  (let [
+         [f & args] (map compile args)
+         ]
+    (if (empty? args)
+      (format "%s()" f)
+      (let [
+             temp-var (gensym "temp_")
+             unshift-args (apply str (interpose ", " (butlast args)))
+             ]
+        (format "(function() {var %s = %s
+                %s.unshift(%s)
+                return %s.apply(null, %s)}())" temp-var (last args) temp-var unshift-args f temp-var)))))
+
+
 (defn compile-seq [[type & args :as form]]
   ;(println "compile-seq" form)
   (cond
@@ -307,6 +322,11 @@
     (let [[x] args]
       (format "!(%s)" (compile x)))
     ;;
+    ;; apply
+    ;;
+    (= 'apply type)
+    (compile-apply args)
+    ;;
     ;; special forms (||, + etc)
     ;;
     (special-forms type)
@@ -354,5 +374,8 @@
   (spit "test.html" (format (slurp "test.html.template") s)))
 
 (print-copy
-  (compile '[:h3 {:style {:font "normal"}}]))
+  (compile '(do
+              (defn sum [& x] (.reduce x #(+ %1 %2)))
+              (console.log (apply sum 1 2 [3 4]))
+              )))
 
