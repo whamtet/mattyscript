@@ -21,15 +21,17 @@
   (apply str (apply map f args)))
 
 (def special-symbols {"+" "_PLUS_"
+                      "!" "_BANG_"
                       "?" "_QMARK_"
                       "-" "_"
                       "#" "_HASH_"})
 
 (defn compile-symbol [symbol]
-  (reduce (fn [s [a b]] (.replace s a b)) (str symbol) special-symbols))
+  ('{class "claz"} symbol
+    (reduce (fn [s [a b]] (.replace s a b)) (str symbol) special-symbols)))
 
 (def special-forms '{+ " + " - " - " / " / " * " * " and " && " or " || " not= " != " = " == "
-                     > " > " >= " >= " <= " <= "
+                     > " > " >= " >= " <= " <= " < " < "
                      })
 
 (defn compile-special-form [type args]
@@ -39,6 +41,14 @@
       (apply str
              (interpose (special-forms type) (map p args))))))
 
+(defn compile-import [[path imports]]
+  (let [
+         imports2 (apply str (interpose ", " imports))
+         check "" ;(map-str #(format "if (!%s) throw new Error('import failure ' + %s)\n" % %) imports)
+         ]
+    (format "import { %s } from '%s';\n%s" imports2 path check)))
+
+
 ;;
 ;; Destructure variable binding
 ;;
@@ -46,25 +56,25 @@
 (declare compile-vector-arg compile-map-arg)
 (defn compile-arg [parent-var i v]
   (cond
-    (symbol? v) (format "var %s = %s[%s]\n" (compile-symbol v) parent-var i)
+    (symbol? v) (format "var %s = %s[%s];\n" (compile-symbol v) parent-var i)
     (vector? v)
     (let [s (str (gensym))]
-      (format "var %s = %s[%s]\n%s" s parent-var i (compile-vector-arg s v)))
+      (format "var %s = %s[%s];\n%s" s parent-var i (compile-vector-arg s v)))
     (map? v)
     (let [s (str (gensym))]
-      (format "var %s = %s[%s]\n%s" s parent-var i (compile-map-arg s v)))
+      (format "var %s = %s[%s];\n%s" s parent-var i (compile-map-arg s v)))
     :default
     (throw (Exception. (format "Impossible compile-arg %s %s %s" parent-var i v)))))
 
 (defn compile-let-arg [[k v]]
   (cond
-    (symbol? k) (format "var %s = %s\n" (compile-symbol k) (compile v))
+    (symbol? k) (format "var %s = %s;\n" (compile-symbol k) (compile v))
     (vector? k)
     (let [s (str (gensym))]
-      (format "var %s = %s\n%s" s (compile v) (compile-vector-arg s k)))
-    (map? v)
+      (format "var %s = %s;\n%s" s (compile v) (compile-vector-arg s k)))
+    (map? k)
     (let [s (str (gensym))]
-      (format "var %s = %s\n%s" s (compile v) (compile-map-arg s k)))
+      (format "var %s = %s;\n%s" s (compile v) (compile-map-arg s k)))
     :default
     (throw (Exception. (format "Impossible let-arg %s %s" k v)))))
 
@@ -74,10 +84,10 @@
 (defn compile-map-arg [parent-var {:keys [as strs] :as m}]
   (str
     (if as
-      (format "var %s = %s\n" (compile-symbol as) parent-var))
+      (format "var %s = %s;\n" (compile-symbol as) parent-var))
     (apply str
            (for [s strs :let [s2 (compile-symbol s)]]
-             (format "var %s = %s['%s']\n" s2 parent-var s)))
+             (format "var %s = %s['%s'];\n" s2 parent-var s)))
     (apply str
            (for [[k v] m :when (string? v)]
              (compile-arg parent-var (pr-str v) k)))))
@@ -115,8 +125,8 @@
 (defn do-statements [statements]
   (apply str
          (map-last
-           #(str (compile %) "\n")
-           #(str "return " (compile %) "\n")
+           #(str (compile %) ";\n")
+           #(str "return " (compile %) ";\n")
            statements)))
 
 (defn compile-fn [[_ name arg-list & forms]]
@@ -149,6 +159,9 @@
       :default
       (format "%s(%s)" f (apply str (interpose ", " args))))))
 
+(defn compile-new [args]
+  (str "new " (compile-invoke args)))
+
 #_(defn compile-invoke [form]
   (let [
          [dot obj method & method-args] (macroexpand-1 form)
@@ -178,6 +191,9 @@
     (if alt
       (format "(%s || %s)" prefix (compile alt))
       prefix)))
+
+(defn compile-assoc-in [[m v value]]
+  (format "%s%s = %s" (compile m) (map-str #(format "[%s]" (compile %)) v) (compile value)))
 ;;
 ;; for and doseq
 ;;
@@ -209,15 +225,15 @@
   (let [
          parent-var (gensym "parent_")
          index-var (gensym "index_")
-         parent-binding (format "var %s = %s\n" parent-var (compile seq))
+         parent-binding (format "var %s = %s;\n" parent-var (compile seq))
          sublet (concat [bindings `(~'get ~parent-var ~index-var)] sublet)
          sublet (compile-let-args sublet)
-         while-clause (if while (format "if (!(%s)) break\n" (compile while)))
-         when-clause (if when (format "if (!(%s)) continue\n" (compile when)))
+         while-clause (if while (format "if (!(%s)) break;\n" (compile while)))
+         when-clause (if when (format "if (!(%s)) continue;\n" (compile when)))
          body (cond
                 (not-empty rings) (compile-ring array rings body)
-                array (format "%s.push(%s)" array (compile body))
-                :default (apply str (interpose "\n" (map compile body))))
+                array (format "%s.push(%s);\n" array (compile body))
+                :default (apply str (interpose ";\n" (map compile body))))
          ]
     (named-format ":parent-bindingfor(var :index-var = 0; :index-var < :parent-var.length; :index-var++) {
                   :sublet:while-clause:when-clause:body}"
@@ -252,11 +268,16 @@
                 return %s.apply(null, %s)}())" temp-var (last args) temp-var unshift-args f temp-var)))))
 
 (defn compile-throw [[error]]
-  (format "throw new Error('%s')" (pr-str error)))
+  (format "(function() {throw %s}())" (compile error)))
 
 (defn compile-seq [[type & args :as form]]
   ;(println "compile-seq" form)
   (cond
+    ;;
+    ;; new
+    ;;
+    (= 'new type)
+    (compile-new args)
     ;;
     ;; def
     ;;
@@ -273,9 +294,7 @@
     ;; import
     ;;
     (= 'import type)
-    (let [[path imports] args
-          args (apply str (interpose ", " imports))]
-      (format "import { %s } from '%s'\n" args path))
+    (compile-import args)
     ;;
     ;; class
     ;;
@@ -309,12 +328,14 @@
     ('#{let clojure.core/let} type)
     (compile-let args)
     ;;
-    ;; get, get-in
+    ;; get, get-in, assoc-in
     ;;
     ('#{get clojure.core/get} type)
     (compile-get args)
     ('#{get-in clojure.core/get-in} type)
     (compile-get-in args)
+    (= 'assoc-in type)
+    (compile-assoc-in args)
     ;;
     ;; for, doseq
     ;;
@@ -325,7 +346,7 @@
     ;;
     ;; not
     ;;
-    (= 'not type)
+    ('#{not clojure.core/not} type)
     (let [[x] args]
       (format "!(%s)" (compile x)))
     ;;
@@ -391,17 +412,24 @@
     (str form)))
 
 (defn macroexpand-special [form]
-  (if (and
-        (seq? form)
+  (if (seq? form)
+    (let [
+           [f arg] form
+           ]
+      (cond
         ('#{cond clojure.core/cond
             when clojure.core/when
             when-not clojure.core/when-not
             -> clojure.core/->
             ->> clojure.core/->>
-            if-not
-            } (first form)))
-    (macroexpand-special (macroexpand-1 form))
-    form))
+            if-not clojure.core/if-not
+            } f)
+        (macroexpand-special (macroexpand-1 form))
+        (.endsWith (str f) ".") (macroexpand-1 form)
+        (= 'defmacro f) (do (eval form) nil)
+        (= 'expand f) (macroexpand arg)
+        :default form))
+      form))
 
 (defn expand-compile [form]
   (compile (walk/prewalk macroexpand-special form)))
@@ -416,4 +444,4 @@
 (defn compile-file [f]
   (apply str (interpose "\n" (map expand-compile (rest (read-file f))))))
 
-(spit "../taipan-preact/src/components/app.js" (compile-file "src-mattyscript/app.clj"))
+;(spit "../taipan-preact/src/components/app.js" (compile-file "src-mattyscript/app.clj"))
