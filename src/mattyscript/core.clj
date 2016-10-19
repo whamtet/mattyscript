@@ -31,7 +31,7 @@
     (reduce (fn [s [a b]] (.replace s a b)) (str symbol) special-symbols)))
 
 (def special-forms '{+ " + " - " - " / " / " * " * " and " && " or " || " not= " != " = " == "
-                     > " > " >= " >= " <= " <= " < " < "
+                     > " > " >= " >= " <= " <= " < " < " mod " % "
                      })
 
 (defn compile-special-form [type args]
