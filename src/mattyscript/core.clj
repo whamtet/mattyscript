@@ -28,7 +28,7 @@
 
 (defn compile-symbol [symbol]
   ('{class "claz"} symbol
-    (reduce (fn [s [a b]] (.replace s a b)) (str symbol) special-symbols)))
+           (reduce (fn [s [a b]] (.replace s a b)) (str symbol) special-symbols)))
 
 (def special-forms '{+ " + " - " - " / " / " * " * " and " && " or " || " not= " != " = " == "
                      > " > " >= " >= " <= " <= " < " < " mod " % "
@@ -38,15 +38,16 @@
   (let [p #(if (coll? %) (format "(%s)" (compile %)) (compile %))]
     (if (and (= '- type) (= 1 (count args)))
       (str "- " (compile (first args)))
-      (apply str
-             (interpose (special-forms type) (map p args))))))
+      (format "(%s)"
+              (apply str
+                     (interpose (special-forms type) (map p args)))))))
 
 (defn compile-import [[path imports]]
   (let [
-         imports2 (apply str (interpose ", " imports))
+         imports2 (apply str (interpose ", " (map compile-symbol imports)))
          check "" ;(map-str #(format "if (!%s) throw new Error('import failure ' + %s)\n" % %) imports)
          ]
-    (format "import { %s } from '%s';\n%s" imports2 path check)))
+    (format "import { %s } from '%s';" imports2 path)))
 
 
 ;;
@@ -136,10 +137,11 @@
            ["function" name (conj forms arg-list)]
            [name arg-list forms])
          simple-binding? #(and (not= '& %) (symbol? %))
+         do-statements (if (= 'constructor name) (apply str (map #(str (compile %) ";\n") forms)) (do-statements forms))
          ]
     (if (every? simple-binding? arg-list)
-      (format "%s(%s){\n%s}\n" name (apply str (interpose ", " (map compile-symbol arg-list))) (do-statements forms))
-      (format "%s(){\n%s%s}\n" name (compile-arg-list arg-list) (do-statements forms)))))
+      (format "%s(%s){\n%s}\n" name (apply str (interpose ", " (map compile-symbol arg-list))) do-statements)
+      (format "%s(){\n%s%s}\n" name (compile-arg-list arg-list) do-statements))))
 
 (defn compile-do [statements]
   (format "(function(){%s}())" (do-statements statements)))
@@ -161,15 +163,6 @@
 
 (defn compile-new [args]
   (str "new " (compile-invoke args)))
-
-#_(defn compile-invoke [form]
-  (let [
-         [dot obj method & method-args] (macroexpand-1 form)
-         [f & args] form
-         ]
-    (if (= '. dot)
-      (format "%s.%s(%s)" (compile obj) method (apply str (interpose ", " (map compile method-args))))
-      (format "%s(%s)" (compile f) (apply str (interpose ", " (map compile args)))))))
 
 (defn compile-if [[cond then else]]
   (if else
@@ -194,6 +187,7 @@
 
 (defn compile-assoc-in [[m v value]]
   (format "%s%s = %s" (compile m) (map-str #(format "[%s]" (compile %)) v) (compile value)))
+
 ;;
 ;; for and doseq
 ;;
@@ -270,9 +264,22 @@
 (defn compile-throw [[error]]
   (format "(function() {throw %s}())" (compile error)))
 
+(defn compile-try [args]
+  (let [
+         body (do-statements (butlast args))
+         [_ e & catch-statements] (last args)
+         catch-statements (do-statements catch-statements)
+         ]
+    (format "(function() {try { %s } catch(%s) { %s }}())" body e catch-statements)))
+
 (defn compile-seq [[type & args :as form]]
   ;(println "compile-seq" form)
   (cond
+    ;;
+    ;; try
+    ;;
+    (= 'try type)
+    (compile-try args)
     ;;
     ;; new
     ;;
@@ -327,6 +334,11 @@
     ;;
     ('#{let clojure.core/let} type)
     (compile-let args)
+    ;;
+    ;; nil?
+    ;;
+    ('#{nil? clojure.core/nil?} type)
+    (format "null == (%s)" (compile (first args)))
     ;;
     ;; get, get-in, assoc-in
     ;;
@@ -423,13 +435,14 @@
             -> clojure.core/->
             ->> clojure.core/->>
             if-not clojure.core/if-not
+            some-> clojure.core/some->
             } f)
         (macroexpand-special (macroexpand-1 form))
         (.endsWith (str f) ".") (macroexpand-1 form)
         (= 'defmacro f) (do (eval form) nil)
         (= 'expand f) (macroexpand arg)
         :default form))
-      form))
+    form))
 
 (defn expand-compile [form]
   (compile (walk/prewalk macroexpand-special form)))
