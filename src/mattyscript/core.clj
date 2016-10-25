@@ -439,7 +439,7 @@
             } f)
         (macroexpand-special (macroexpand-1 form))
         (.endsWith (str f) ".") (macroexpand-1 form)
-        (= 'defmacro f) (do (eval form) nil)
+        (= 'defmacro f) (str (eval form))
         (= 'expand f) (macroexpand arg)
         :default form))
     form))
