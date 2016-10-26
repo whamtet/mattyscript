@@ -1,6 +1,5 @@
 (ns mattyscript.core
   (:require [hawk.core :as hawk]
-            [mattyscript.util :as util]
             [clojure.walk :as walk]
             )
   (:refer-clojure :exclude [compile]))

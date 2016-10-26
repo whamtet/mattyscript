@@ -12,7 +12,8 @@
 
 (defn spit-script [dir ns target-index? s]
   (let [
-         elements (.split (str ns) "\\.")
+         ns (.replace (str ns) "-" "_")
+         elements (.split ns "\\.")
          parent (if target-index?
                   (apply str (interpose "/" (concat [dir] elements)))
                   (apply str (interpose "/" (concat [dir] (butlast elements)))))
@@ -51,4 +52,4 @@
          ]
     (spit-script "../taipan-preact/src/components" ns target-index? (apply str (interpose "\n" (map core/expand-compile forms))))))
 
-(defonce watcher3 (safe-watcher ["../src-mattyscript"] #'handler))
+(defonce watcher (safe-watcher ["../src-mattyscript"] #'handler))
