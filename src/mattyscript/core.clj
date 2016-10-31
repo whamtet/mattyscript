@@ -271,9 +271,17 @@
          ]
     (format "(function() {try { %s } catch(%s) { %s }}())" body e catch-statements)))
 
+(defn compile-json= [args]
+  (compile `(~'= ~@(map #(list 'JSON.stringify %) args))))
+
 (defn compile-seq [[type & args :as form]]
   ;(println "compile-seq" form)
   (cond
+    ;;
+    ;; json=
+    ;;
+    (= 'json= type)
+    (compile-json= args)
     ;;
     ;; try
     ;;
