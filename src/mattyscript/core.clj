@@ -1,6 +1,5 @@
 (ns mattyscript.core
-  (:require [hawk.core :as hawk]
-            [clojure.walk :as walk]
+  (:require [clojure.walk :as walk]
             )
   (:refer-clojure :exclude [compile]))
 
@@ -112,7 +111,8 @@
                 (count normal-args))))))
 
 (defn compile-arg-list [v]
-  (format "var args = Array.from(arguments)\n%s" (compile-vector-arg "args" v)))
+  #_(format "var args = Array.from(arguments)\n%s" (compile-vector-arg "args" v))
+  (format "var args = [].slice.call(arguments)\n%s" (compile-vector-arg "args" v)))
 
 ;;
 ;; end Destructure
@@ -443,6 +443,7 @@
             ->> clojure.core/->>
             if-not clojure.core/if-not
             some-> clojure.core/some->
+            if-let clojure.core/if-let
             } f)
         (macroexpand-special (macroexpand-1 form))
         (.endsWith (str f) ".") (macroexpand-1 form)
