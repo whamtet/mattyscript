@@ -229,7 +229,7 @@
                 :default (apply str (interpose ";\n" (map compile body))))
          ]
     (named-format ":parent-bindingfor(var :index-var = 0; :index-var < :parent-var.length; :index-var++) {
-                  :sublet:while-clause:when-clause:body}"
+                  (function() {:sublet:while-clause:when-clause:body}())}"
                   (keyzip parent-binding parent-var index-var sublet body while-clause when-clause))))
 
 
