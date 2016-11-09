@@ -221,8 +221,8 @@
          parent-binding (format "var %s = %s;\n" parent-var (compile seq))
          sublet (concat [bindings `(~'get ~parent-var ~index-var)] sublet)
          sublet (compile-let-args sublet)
-         while-clause (if while (format "if (!(%s)) break;\n" (compile while)))
-         when-clause (if when (format "if (!(%s)) continue;\n" (compile when)))
+         while-clause (if while (throw (Exception. "while-clause unimplemented")) #_(format "if (!(%s)) break;\n" (compile while)))
+         when-clause (if when (format "if (!(%s)) return;\n" (compile when)))
          body (cond
                 (not-empty rings) (compile-ring array rings body)
                 array (format "%s.push(%s);\n" array (compile body))
