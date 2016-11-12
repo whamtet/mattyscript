@@ -44,12 +44,16 @@
                    :filter (fn [_ {:keys [file kind]}] (and (= :modify kind) (.isFile file) (.endsWith (.getName file) ".clj")))
                    :handler handler2}])))
 
-(defn handler [{:keys [file]}]
-  (println "handling" file)
-  (let [
-         [[_ ns & ns-opts] & forms] (read-file file)
-         target-index? (some #(and (coll? %) (= :index (first %))) ns-opts)
-         ]
-    (spit-script "../taipan-preact/src/components" ns target-index? (apply str (interpose "\n" (map core/expand-compile forms))))))
+(defn make-handler [out]
+  (fn handler [{:keys [file]}]
+    (println "handling" file)
+    (let [
+           [[_ ns & ns-opts] & forms] (read-file file)
+           target-index? (some #(and (coll? %) (= :index (first %))) ns-opts)
+           ]
+      (spit-script out ns target-index? (apply str (interpose "\n" (map core/expand-compile forms)))))))
 
-(defonce watcher (safe-watcher ["../src-mattyscript"] #'handler))
+;(defonce watcher (safe-watcher ["../src-mattyscript"] (make-handler "../taipan-preact/src/components")))
+(defonce watcher (safe-watcher ["../../../clojure/university-insider/resources/public/uni-mattyscript"]
+                               (make-handler
+                                 "../../../clojure/university-insider/resources/public/src/components")))

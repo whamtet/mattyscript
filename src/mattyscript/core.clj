@@ -47,7 +47,6 @@
          ]
     (format "import { %s } from '%s';" imports2 path)))
 
-
 ;;
 ;; Destructure variable binding
 ;;
@@ -444,6 +443,8 @@
             if-not clojure.core/if-not
             some-> clojure.core/some->
             if-let clojure.core/if-let
+            when-let clojure.core/when-let
+            doto clojure.core/doto
             } f)
         (macroexpand-special (macroexpand-1 form))
         (.endsWith (str f) ".") (macroexpand-1 form)
