@@ -27,6 +27,9 @@
 (defn subdirs [f]
   (filter #(.isDirectory %) (file-seq (File. f))))
 
+(defn src-files [f]
+  (filter #(.endsWith (.getName %) ".clj") (file-seq (File. f))))
+
 (defn safe-watcher
   "watcher that avoids duplicate calls in close succession"
   [paths handler]
@@ -40,6 +43,9 @@
                         (swap! recent disj e))
                       (try (handler e) (catch Exception e (println e)))))
          ]
+    ;warmup compile
+    (doseq [f (mapcat src-files paths)]
+      (handler {:file f}))
     (hawk/watch! [{:paths (mapcat subdirs paths)
                    :filter (fn [_ {:keys [file kind]}] (and (= :modify kind) (.isFile file) (.endsWith (.getName file) ".clj")))
                    :handler handler2}])))
@@ -53,7 +59,7 @@
            ]
       (spit-script out ns target-index? (apply str (interpose "\n" (map core/expand-compile forms)))))))
 
-;(defonce watcher (safe-watcher ["../src-mattyscript"] (make-handler "../taipan-preact/src/components")))
-(defonce watcher (safe-watcher ["../../../clojure/university-insider/resources/public/uni-mattyscript"]
+(defonce watcher (safe-watcher ["../src-mattyscript"] (make-handler "../taipan-preact/src/components")))
+#_(defonce watcher (safe-watcher ["../../../clojure/university-insider/resources/public/uni-mattyscript"]
                                (make-handler
                                  "../../../clojure/university-insider/resources/public/src/components")))
