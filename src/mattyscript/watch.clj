@@ -57,7 +57,7 @@
            [[_ ns & ns-opts] & forms] (read-file file)
            target-index? (some #(and (coll? %) (= :index (first %))) ns-opts)
            ]
-      (spit-script out ns target-index? (apply str (interpose "\n" (map core/expand-compile forms)))))))
+      (spit-script out ns target-index? (apply str (interpose "\n" (map core/rename-compile forms)))))))
 
 #_(defonce watcher (safe-watcher ["../src-mattyscript"] (make-handler "../taipan-preact/src/components")))
 (defonce watcher (safe-watcher ["../src-mattyscript"] (make-handler "../taipan-react/src/components")))

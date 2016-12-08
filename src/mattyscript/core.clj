@@ -457,16 +457,6 @@
   (compile (walk/prewalk macroexpand-special form)))
 
 (defn rename-compile [form]
-  (expand-compile (walk/prewalk #({:class :className :onclick :onClick :oninput :onChange} % %) form)))
-
-(defn print-copy [s]
-  (println s)
-  (spit "test.html" (format (slurp "test.html.template") s)))
-
-(defn read-file [f]
-  (read-string (format "[%s]" (slurp f))))
-
-(defn compile-file [f]
-  (apply str (interpose "\n" (map reame-compile (rest (read-file f))))))
-
-;(spit "../taipan-preact/src/components/app.js" (compile-file "src-mattyscript/app.clj"))
+  (expand-compile (walk/prewalk #({:class :className :onclick :onClick :oninput :onChange :border-radius :borderRadius
+                                   :onchange :onChange :for :htmlFor :text-align :textAlign
+                                   } % %) form)))
