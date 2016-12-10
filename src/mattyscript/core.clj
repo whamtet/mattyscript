@@ -133,16 +133,16 @@
          [name arg-list forms]
          (if (vector? name)
            ["function" name (conj forms arg-list)]
-           [name arg-list forms])
+           [(compile-symbol name) arg-list forms])
          simple-binding? #(and (not= '& %) (symbol? %))
-         do-statements (if (= 'constructor name) (apply str (map #(str (compile %) ";\n") forms)) (do-statements forms))
+         do-statements (if (= "constructor" name) (apply str (map #(str (compile %) ";\n") forms)) (do-statements forms))
          ]
     (if (every? simple-binding? arg-list)
       (format "%s(%s){\n%s}\n" name (apply str (interpose ", " (map compile-symbol arg-list))) do-statements)
       (format "%s(){\n%s%s}\n" name (compile-arg-list arg-list) do-statements))))
 
 (defn compile-do [statements]
-  (format "(function(){%s}())" (do-statements statements)))
+  (format "(function(){%s}).call(this)" (do-statements statements)))
 
 (defn compile-invoke [form]
   (let [
@@ -164,11 +164,11 @@
 
 (defn compile-if [[cond then else]]
   (if else
-    (format "(function() {if (%s) {return %s} else {return %s}}())" (compile cond) (compile then) (compile else))
-    (format "(function() {if (%s) {return %s}}())" (compile cond) (compile then))))
+    (format "(function() {if (%s) {return %s} else {return %s}}).call(this)" (compile cond) (compile then) (compile else))
+    (format "(function() {if (%s) {return %s}}).call(this)" (compile cond) (compile then))))
 
 (defn compile-let [[binding-vector & body]]
-  (format "(function() {\n%s%s}())" (compile-let-args binding-vector) (do-statements body)))
+  (format "(function() {\n%s%s}).call(this)" (compile-let-args binding-vector) (do-statements body)))
 
 (defn compile-get [[m k alt]]
   (if alt
@@ -233,14 +233,14 @@
 
 
 (defn compile-doseq [[bindings & body]]
-  (format "(function() {%s}())" (compile-ring nil (parse-bindings bindings) body)))
+  (format "(function() {%s}).call(this)" (compile-ring nil (parse-bindings bindings) body)))
 
 (defn compile-for [[bindings body]]
   (let [array (str (gensym "array_"))]
     (format "(function() {
             var %s = []
             %s
-            return %s}())" array (compile-ring array (parse-bindings bindings) body) array)))
+            return %s}).call(this)" array (compile-ring array (parse-bindings bindings) body) array)))
 ;;
 ;; end for, doseq
 ;;
@@ -257,10 +257,10 @@
              ]
         (format "(function() {var %s = %s
                 %s.unshift(%s)
-                return %s.apply(null, %s)}())" temp-var (last args) temp-var unshift-args f temp-var)))))
+                return %s.apply(this, %s)}).call(this)" temp-var (last args) temp-var unshift-args f temp-var)))))
 
 (defn compile-throw [[error]]
-  (format "(function() {throw %s}())" (compile error)))
+  (format "(function() {throw %s}).call(this)" (compile error)))
 
 (defn compile-try [args]
   (let [
@@ -268,7 +268,7 @@
          [_ e & catch-statements] (last args)
          catch-statements (do-statements catch-statements)
          ]
-    (format "(function() {try { %s } catch(%s) { %s }}())" body e catch-statements)))
+    (format "(function() {try { %s } catch(%s) { %s }}).call(this)" body e catch-statements)))
 
 (defn compile-json= [args]
   (compile `(~'= ~@(map #(list 'JSON.stringify %) args))))

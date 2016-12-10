@@ -59,8 +59,4 @@
            ]
       (spit-script out ns target-index? (apply str (interpose "\n" (map core/rename-compile forms)))))))
 
-#_(defonce watcher (safe-watcher ["../src-mattyscript"] (make-handler "../taipan-preact/src/components")))
 (defonce watcher (safe-watcher ["../src-mattyscript"] (make-handler "../taipan-react/src/components")))
-#_(defonce watcher (safe-watcher ["../../../clojure/university-insider/resources/public/uni-mattyscript"]
-                               (make-handler
-                                 "../../../clojure/university-insider/resources/public/src/components")))
