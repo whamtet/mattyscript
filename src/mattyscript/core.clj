@@ -390,6 +390,8 @@
     ;;
     ;; must be
     ;;
+    (= 'comment type)
+    nil
     :default
     (compile-invoke form)
     ))
@@ -459,4 +461,7 @@
 (defn rename-compile [form]
   (expand-compile (walk/prewalk #({:class :className :onclick :onClick :oninput :onChange :border-radius :borderRadius
                                    :onchange :onChange :for :htmlFor :text-align :textAlign
+                                   :onsubmit :onSubmit
                                    } % %) form)))
+
+;(def rename-compile expand-compile)
