@@ -1,11 +1,12 @@
 (ns mattyscript.core
-  (:require [clojure.walk :as walk]
-            )
+  (:require [clojure.walk :as walk])
   (:refer-clojure :exclude [compile]))
 
 (declare compile)
 
-(defn export-format [form s & args]
+(defn export-format
+  "like format but takes form as a first argument to prepend 'export' or 'export-default'"
+  [form s & args]
   (let [
          {:keys [export default]} (meta form)
          prefix
@@ -43,7 +44,6 @@
 (defn compile-import [[path imports]]
   (let [
          imports2 (apply str (interpose ", " (map compile-symbol imports)))
-         check "" ;(map-str #(format "if (!%s) throw new Error('import failure ' + %s)\n" % %) imports)
          ]
     (format "import { %s } from '%s';" imports2 path)))
 
@@ -52,6 +52,7 @@
 ;;
 
 (declare compile-vector-arg compile-map-arg)
+
 (defn compile-arg [parent-var i v]
   (cond
     (symbol? v) (format "var %s = %s[%s];\n" (compile-symbol v) parent-var i)
@@ -110,7 +111,6 @@
                 (count normal-args))))))
 
 (defn compile-arg-list [v]
-  #_(format "var args = Array.from(arguments)\n%s" (compile-vector-arg "args" v))
   (format "var args = [].slice.call(arguments)\n%s" (compile-vector-arg "args" v)))
 
 ;;
@@ -183,12 +183,16 @@
       (format "(%s || %s)" prefix (compile alt))
       prefix)))
 
+(defn compile-assoc [[m k value]]
+  (format "%s[%s] = %s" (compile m) (compile k) (compile value)))
+
 (defn compile-assoc-in [[m v value]]
   (format "%s%s = %s" (compile m) (map-str #(format "[%s]" (compile %)) v) (compile value)))
 
 ;;
 ;; for and doseq
 ;;
+
 (defn parse-bindings [v]
   (let [
          v (partition 2 v)
@@ -255,6 +259,7 @@
              temp-var (gensym "temp_")
              unshift-args (apply str (interpose ", " (butlast args)))
              ]
+        ;we have to shift butlast args onto the front of the array
         (format "(function() {var %s = %s
                 %s.unshift(%s)
                 return %s.apply(this, %s)}).call(this)" temp-var (last args) temp-var unshift-args f temp-var)))))
@@ -352,6 +357,8 @@
     (compile-get args)
     ('#{get-in clojure.core/get-in} type)
     (compile-get-in args)
+    (= 'assoc type)
+    (compile-assoc args)
     (= 'assoc-in type)
     (compile-assoc-in args)
     ;;
@@ -400,7 +407,9 @@
   (let [s (name s)]
     (if (= s (.toLowerCase s)) s (symbol s))))
 
-(defn compile-vector [[kw & rest :as v]]
+(defn compile-vector
+  "for hyperscript"
+  [[kw & rest :as v]]
   (if (keyword? kw)
     (compile-invoke (concat ['h (symbolize kw)] rest))
     (format "[%s]" (apply str (interpose ", " (map compile v))))))

@@ -18,8 +18,8 @@
                   (apply str (interpose "/" (concat [dir] elements)))
                   (apply str (interpose "/" (concat [dir] (butlast elements)))))
          f (if target-index?
-             (str parent "/index.js")
-             (str parent "/" (last elements) ".js"))
+             (str parent "/index.jsx")
+             (str parent "/" (last elements) ".jsx"))
          ]
     (.mkdirs (File. parent))
     (spit f (format "//Compiled by Mattyscript %s\n%s" project-version s))))
@@ -57,6 +57,6 @@
            [[_ ns & ns-opts] & forms] (read-file file)
            target-index? (some #(and (coll? %) (= :index (first %))) ns-opts)
            ]
-      (spit-script out ns target-index? (apply str (interpose "\n" (map core/rename-compile forms)))))))
+      (spit-script out ns target-index? (apply str (interpose "\n" (map #_core/expand-compile core/rename-compile forms)))))))
 
-(defonce watcher (safe-watcher ["../src-mattyscript"] (make-handler "../taipan-react/src/components")))
+(defonce watcher (safe-watcher ["../src-mattyscript"] (make-handler "../src-preact")))
