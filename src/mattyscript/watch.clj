@@ -18,8 +18,8 @@
                   (apply str (interpose "/" (concat [dir] elements)))
                   (apply str (interpose "/" (concat [dir] (butlast elements)))))
          f (if target-index?
-             (str parent "/index.jsx")
-             (str parent "/" (last elements) ".jsx"))
+             (str parent "/index.js")
+             (str parent "/" (last elements) ".js"))
          ]
     (.mkdirs (File. parent))
     (spit f (format "//Compiled by Mattyscript %s\n%s" project-version s))))
@@ -59,4 +59,4 @@
            ]
       (spit-script out ns target-index? (apply str (interpose "\n" (map #_core/expand-compile core/rename-compile forms)))))))
 
-(defonce watcher (safe-watcher ["../src-mattyscript"] (make-handler "../src-preact")))
+(defonce watcher (safe-watcher ["../src-mattyscript"] (make-handler "../taipan-react/src/components/")))

@@ -398,7 +398,7 @@
     ;; must be
     ;;
     (= 'comment type)
-    nil
+    "null"
     :default
     (compile-invoke form)
     ))
