@@ -47,6 +47,7 @@
          ]
     (format "import { %s } from '%s';" imports2 path)))
 
+
 ;;
 ;; Destructure variable binding
 ;;
@@ -141,6 +142,15 @@
       (format "%s(%s){\n%s}\n" name (apply str (interpose ", " (map compile-symbol arg-list))) do-statements)
       (format "%s(){\n%s%s}\n" name (compile-arg-list arg-list) do-statements))))
 
+(defn compile-class [[name & [superclass & methods :as all-methods]]]
+  (cond
+    (symbol? superclass)
+    (export-format name "class %s extends %s {\n\n%s}" name superclass (map-str compile-fn methods))
+    (not superclass)
+    (export-format name "class %s {}" name)
+    :default
+    (export-format name "class %s {\n\n%s}" name (map-str compile-fn all-methods))))
+
 (defn compile-do [statements]
   (format "(function(){%s}).call(this)" (do-statements statements)))
 
@@ -189,6 +199,15 @@
 (defn compile-assoc-in [[m v value]]
   (format "%s%s = %s" (compile m) (map-str #(format "[%s]" (compile %)) v) (compile value)))
 
+(defn compile-dissoc [[m & ks]]
+  (let [
+         m (compile m)
+         ]
+    (map-str #(format "delete %s[%s]" m (compile %)) ks)))
+
+(defn compile-dissoc-in [[m v]]
+  (format "delete %s%s" (compile m) (map-str #(format "[%s]" (compile %)) v)))
+
 ;;
 ;; for and doseq
 ;;
@@ -232,7 +251,7 @@
                 :default (apply str (interpose ";\n" (map compile body))))
          ]
     (named-format ":parent-bindingfor(var :index-var = 0; :index-var < :parent-var.length; :index-var++) {
-                  (function() {:sublet:while-clause:when-clause:body}())}"
+                  (function() {:sublet:while-clause:when-clause:body}).call(this)}"
                   (keyzip parent-binding parent-var index-var sublet body while-clause when-clause))))
 
 
@@ -317,8 +336,7 @@
     ;; class
     ;;
     (= 'class type)
-    (let [[name superclass & methods] args]
-      (export-format name "class %s extends %s {\n\n%s}" name superclass (map-str compile-fn methods)))
+    (compile-class args)
     ;;
     ;; fn
     ;;
@@ -361,6 +379,10 @@
     (compile-assoc args)
     (= 'assoc-in type)
     (compile-assoc-in args)
+    (= 'dissoc type)
+    (compile-dissoc args)
+    (= 'dissoc-in type)
+    (compile-dissoc-in args)
     ;;
     ;; for, doseq
     ;;
@@ -398,7 +420,7 @@
     ;; must be
     ;;
     (= 'comment type)
-    nil
+    "null"
     :default
     (compile-invoke form)
     ))
