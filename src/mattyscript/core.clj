@@ -185,7 +185,7 @@
     (format "(%s[%s] || %s)" (compile m) (compile k) (compile alt))
     (format "%s[%s]" (compile m) (compile k))))
 
-(defn compile-get-in [[m v alt]]
+#_(defn compile-get-in [[m v alt]]
   (let [
          prefix (apply str (compile m) (map #(format "[%s]" (compile %)) v))
          ]
@@ -196,17 +196,11 @@
 (defn compile-assoc [[m k value]]
   (format "%s[%s] = %s" (compile m) (compile k) (compile value)))
 
-(defn compile-assoc-in [[m v value]]
-  (format "%s%s = %s" (compile m) (map-str #(format "[%s]" (compile %)) v) (compile value)))
-
 (defn compile-dissoc [[m & ks]]
   (let [
          m (compile m)
          ]
     (map-str #(format "delete %s[%s]" m (compile %)) ks)))
-
-(defn compile-dissoc-in [[m v]]
-  (format "delete %s%s" (compile m) (map-str #(format "[%s]" (compile %)) v)))
 
 ;;
 ;; for and doseq
@@ -369,20 +363,14 @@
     ('#{nil? clojure.core/nil?} type)
     (format "null == (%s)" (compile (first args)))
     ;;
-    ;; get, get-in, assoc-in
+    ;; get
     ;;
     ('#{get clojure.core/get} type)
     (compile-get args)
-    ('#{get-in clojure.core/get-in} type)
-    (compile-get-in args)
     (= 'assoc type)
     (compile-assoc args)
-    (= 'assoc-in type)
-    (compile-assoc-in args)
     (= 'dissoc type)
     (compile-dissoc args)
-    (= 'dissoc-in type)
-    (compile-dissoc-in args)
     ;;
     ;; for, doseq
     ;;
