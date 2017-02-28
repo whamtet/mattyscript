@@ -244,7 +244,7 @@
                 array (format "%s.push(%s);\n" array (compile body))
                 :default (apply str (interpose ";\n" (map compile body))))
          ]
-    (named-format ":parent-bindingfor(var :index-var = 0; :index-var < :parent-var.length; :index-var++) {
+    (named-format ":parent-bindingfor(var :index-var = 0;:parent-var && :parent-var.length && :index-var < :parent-var.length; :index-var++) {
                   (function() {:sublet:while-clause:when-clause:body}).call(this)}"
                   (keyzip parent-binding parent-var index-var sublet body while-clause when-clause))))
 
