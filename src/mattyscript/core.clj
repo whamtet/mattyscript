@@ -29,7 +29,7 @@
   ('{class "claz"} symbol
            (reduce (fn [s [a b]] (.replace s a b)) (str symbol) special-symbols)))
 
-(def special-forms '{+ " + " - " - " / " / " * " * " and " && " or " || " not= " != " = " == "
+(def special-forms '{+ " + " - " - " / " / " * " * " and " && " or " || " not= " !== " = " === "
                      > " > " >= " >= " <= " <= " < " < " mod " % "
                      })
 
@@ -89,8 +89,8 @@
            (for [s strs :let [s2 (compile-symbol s)]]
              (format "var %s = %s['%s'];\n" s2 parent-var s)))
     (apply str
-           (for [[k v] m :when (string? v)]
-             (compile-arg parent-var (pr-str v) k)))))
+           (for [[k v] m :when (or (string? v) (keyword? v))]
+             (compile-arg parent-var (pr-str (name v)) k)))))
 
 (defn after [x s]
   (nth (drop-while #(not= x %) s) 1))
@@ -291,6 +291,9 @@
 (defn compile-json= [args]
   (compile `(~'= ~@(map #(list 'JSON.stringify %) args))))
 
+(defn compile-while [[condition & body]]
+  (format "while(%s){%s}" (compile condition) (apply str (interpose "; " (map compile body)))))
+
 (defn compile-seq [[type & args :as form]]
   ;(println "compile-seq" form)
   (cond
@@ -299,6 +302,11 @@
     ;;
     (= 'json= type)
     (compile-json= args)
+    ;;
+    ;; while
+    ;;
+    (= 'while type)
+    (compile-while args)
     ;;
     ;; try
     ;;
