@@ -182,8 +182,8 @@
 
 (defn compile-get [[m k alt]]
   (if alt
-    (format "(%s[%s] || %s)" (compile m) (compile k) (compile alt))
-    (format "%s[%s]" (compile m) (compile k))))
+    (format "((%s)[%s] || %s)" (compile m) (compile k) (compile alt))
+    (format "(%s)[%s]" (compile m) (compile k))))
 
 #_(defn compile-get-in [[m v alt]]
   (let [
