@@ -107,7 +107,7 @@
                 parent-var))
       (if (some #(= '& %) v)
         (format "var %s = %s.slice(%s)\n"
-                (after '& v)
+                (compile-symbol (after '& v))
                 (compile-symbol parent-var)
                 (count normal-args))))))
 
