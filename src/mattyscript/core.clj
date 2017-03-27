@@ -81,12 +81,12 @@
 (defn compile-let-args [binding-vector]
   (map-str compile-let-arg (partition 2 binding-vector)))
 
-(defn compile-map-arg [parent-var {:keys [as strs] :as m}]
+(defn compile-map-arg [parent-var {:keys [as strs keys] :as m}]
   (str
     (if as
       (format "var %s = %s;\n" (compile-symbol as) parent-var))
     (apply str
-           (for [s strs :let [s2 (compile-symbol s)]]
+           (for [s (or strs keys) :let [s2 (compile-symbol s)]]
              (format "var %s = %s['%s'];\n" s2 parent-var s)))
     (apply str
            (for [[k v] m :when (or (string? v) (keyword? v))]
@@ -106,13 +106,13 @@
                 (compile-symbol (after :as v))
                 parent-var))
       (if (some #(= '& %) v)
-        (format "var %s = %s.slice(%s)\n"
+        (format "var %s = %s.slice(%s);\n"
                 (compile-symbol (after '& v))
                 (compile-symbol parent-var)
                 (count normal-args))))))
 
 (defn compile-arg-list [v]
-  (format "var args = [].slice.call(arguments)\n%s" (compile-vector-arg "args" v)))
+  (format "var args = [].slice.call(arguments);\n%s" (compile-vector-arg "args" v)))
 
 ;;
 ;; end Destructure
