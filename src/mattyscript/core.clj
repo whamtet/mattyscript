@@ -193,10 +193,10 @@
       (format "(%s || %s)" prefix (compile alt))
       prefix)))
 
-(defn compile-assoc [[m k value]]
+#_(defn compile-assoc [[m k value]]
   (format "%s[%s] = %s" (compile m) (compile k) (compile value)))
 
-(defn compile-dissoc [[m & ks]]
+#_(defn compile-dissoc [[m & ks]]
   (let [
          m (compile m)
          ]
@@ -375,10 +375,10 @@
     ;;
     ('#{get clojure.core/get} type)
     (compile-get args)
-    (= 'assoc type)
-    (compile-assoc args)
-    (= 'dissoc type)
-    (compile-dissoc args)
+;;     (= 'assoc type)
+;;     (compile-assoc args)
+;;     (= 'dissoc type)
+;;     (compile-dissoc args)
     ;;
     ;; for, doseq
     ;;
@@ -477,8 +477,8 @@
             } f)
         (macroexpand-special (macroexpand-1 form))
         (.endsWith (str f) ".") (macroexpand-1 form)
-        (= 'defmacro f) (str (eval form))
-        (= 'expand f) (macroexpand arg)
+        (= 'defmacro f) (str (load-string (str "(ns user) " (pr-str form))))
+        (= 'expand f) (load-string (format "(ns user) (macroexpand '%s)" (pr-str arg)))
         :default form))
     form))
 
