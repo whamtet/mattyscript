@@ -41,8 +41,8 @@ Nice destructuring
     (init)))
 
 (class ^:export ^:default Subclass ParentClass
-  (fn method-1 [arg1 {:keys [kind? good?] :as arg2}])
-  (fn method-2 []))
+  (fn method1 [arg1 {:keys [kind? good?] :as arg2}])
+  (fn method2 []))
 ```
 
 Add `^:export` and `^:default` metadata as you see fit
@@ -68,7 +68,7 @@ Functions also accept `^:export` and `^:default` metadata.
 ```clojure
 (.myMethod obj arg1 arg2)
 (.-key obj)
-```clojure
+```
 
 ### Instantiation
 
@@ -78,7 +78,7 @@ Functions also accept `^:export` and `^:default` metadata.
 (MyClass. arg1 arg2)
 ```
 
-### If, If else, when
+### If, If Else, When
 ```clojure
 (let [
        gender? (if crazy? "girl" "boy")
@@ -126,6 +126,7 @@ Two very useful features missing from regular JS
 ```
 
 The `:while` keyword is unimplemented because I'm lazy, however destructuring does work.
+
 `for` can also be used to convert JS pseudo arrays into proper arrays, for example the Files object returned by a file selector
 
 ```clojure
