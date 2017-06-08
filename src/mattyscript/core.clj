@@ -23,14 +23,16 @@
                       "!" "_BANG_"
                       "?" "_QMARK_"
                       "-" "_"
-                      "#" "_HASH_"})
+                      "#" "_HASH_"
+                      "/" "."
+                      })
 
 (defn compile-symbol [symbol]
   ('{class "claz"} symbol
            (reduce (fn [s [a b]] (.replace s a b)) (str symbol) special-symbols)))
 
 (def special-forms '{+ " + " - " - " / " / " * " * " and " && " or " || " not= " !== " = " === "
-                     > " > " >= " >= " <= " <= " < " < " mod " % "
+                     > " > " >= " >= " <= " <= " < " < " mod " % " in " in "
                      })
 
 (defn compile-special-form [type args]
@@ -342,7 +344,7 @@
     ;;
     ;; fn
     ;;
-    ('#{fn fn*} type)
+    ('#{fn fn* clojure.core/fn} type)
     (compile-fn form)
     ;;
     ;; defn
@@ -478,6 +480,8 @@
         (macroexpand-special (macroexpand-1 form))
         (.endsWith (str f) ".") (macroexpand-1 form)
         (= 'defmacro f) (str (binding [*ns* (find-ns 'user)] (eval form)))
+        (= 'eval f) (str (binding [*ns* (find-ns 'user)]
+                           (eval `(do ~@(rest form)))))
         (= 'expand f) (binding [*ns* (find-ns 'user)] (macroexpand arg))
         :default form))
     form))
