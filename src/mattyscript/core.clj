@@ -442,6 +442,8 @@
 
 (defn compile [form]
   (cond
+    (instance? java.util.regex.Pattern form)
+    (format "/%s/" form)
     (seq? form)
     (compile-seq form)
     (string? form)
