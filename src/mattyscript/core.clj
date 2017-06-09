@@ -50,7 +50,7 @@
     (format "import { %s } from '%s';" imports2 path)))
 
 (defn compile-require [[path alias]]
-  (format "import * as %s from '%s';" alias path))
+  (format "import * as %s from '%s';" (compile-symbol alias) path))
 
 ;;
 ;; Destructure variable binding
