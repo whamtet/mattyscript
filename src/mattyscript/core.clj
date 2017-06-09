@@ -49,6 +49,8 @@
          ]
     (format "import { %s } from '%s';" imports2 path)))
 
+(defn compile-require [[path alias]]
+  (format "import * as %s from '%s';" alias path))
 
 ;;
 ;; Destructure variable binding
@@ -336,6 +338,8 @@
     ;;
     (= 'import type)
     (compile-import args)
+    (= 'require type)
+    (compile-require args)
     ;;
     ;; class
     ;;
