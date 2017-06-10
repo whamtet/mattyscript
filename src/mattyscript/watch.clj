@@ -28,7 +28,7 @@
   (filter #(.isDirectory %) (file-seq (File. f))))
 
 (defn src-files [f]
-  (filter #(.endsWith (.getName %) ".clj") (file-seq (File. f))))
+  (filter #(.endsWith (.getName %) ".cljs") (file-seq (File. f))))
 
 (defn safe-watcher
   "watcher that avoids duplicate calls in close succession"
