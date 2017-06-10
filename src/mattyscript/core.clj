@@ -158,6 +158,9 @@
 (defn compile-do [statements]
   (format "(function(){%s}).call(this)" (do-statements statements)))
 
+(defn compile-do-flat [statements]
+  (map-str #(format "%s;\n" (compile %)) statements))
+
 (defn compile-invoke [form]
   (let [
          form (map compile form)
@@ -361,6 +364,8 @@
     ;;
     (= 'do type)
     (compile-do args)
+    (= 'doflat type)
+    (compile-do-flat args)
     ;;
     ;; if
     ;;
