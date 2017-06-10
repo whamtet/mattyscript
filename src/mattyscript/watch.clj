@@ -47,7 +47,7 @@
     (doseq [f (mapcat src-files paths)]
       (handler {:file f}))
     (hawk/watch! [{:paths (mapcat subdirs paths)
-                   :filter (fn [_ {:keys [file kind]}] (and (= :modify kind) (.isFile file) (.endsWith (.getName file) ".clj")))
+                   :filter (fn [_ {:keys [file kind]}] (and (= :modify kind) (.isFile file) (.endsWith (.getName file) ".cljs")))
                    :handler handler2}])))
 
 (defn make-handler [out]
