@@ -193,21 +193,21 @@
     (format "(%s)[%s]" (compile m) (compile k))))
 
 #_(defn compile-get-in [[m v alt]]
-  (let [
-         prefix (apply str (compile m) (map #(format "[%s]" (compile %)) v))
-         ]
-    (if alt
-      (format "(%s || %s)" prefix (compile alt))
-      prefix)))
+    (let [
+           prefix (apply str (compile m) (map #(format "[%s]" (compile %)) v))
+           ]
+      (if alt
+        (format "(%s || %s)" prefix (compile alt))
+        prefix)))
 
 #_(defn compile-assoc [[m k value]]
-  (format "%s[%s] = %s" (compile m) (compile k) (compile value)))
+    (format "%s[%s] = %s" (compile m) (compile k) (compile value)))
 
 #_(defn compile-dissoc [[m & ks]]
-  (let [
-         m (compile m)
-         ]
-    (map-str #(format "delete %s[%s]" m (compile %)) ks)))
+    (let [
+           m (compile m)
+           ]
+      (map-str #(format "delete %s[%s]" m (compile %)) ks)))
 
 ;;
 ;; for and doseq
@@ -386,10 +386,10 @@
     ;;
     ('#{get clojure.core/get} type)
     (compile-get args)
-;;     (= 'assoc type)
-;;     (compile-assoc args)
-;;     (= 'dissoc type)
-;;     (compile-dissoc args)
+    ;;     (= 'assoc type)
+    ;;     (compile-assoc args)
+    ;;     (= 'dissoc type)
+    ;;     (compile-dissoc args)
     ;;
     ;; for, doseq
     ;;
@@ -440,7 +440,9 @@
   "for hyperscript"
   [[kw & rest :as v]]
   (if (keyword? kw)
-    (compile-invoke (concat ['h (symbolize kw)] rest))
+    (do
+      (assert (or (< (count v) 2) (map? (second v))))
+      (compile-invoke (concat ['h (symbolize kw)] rest)))
     (format "[%s]" (apply str (interpose ", " (map compile v))))))
 
 (defn compile-map [m]
