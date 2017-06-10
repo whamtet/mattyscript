@@ -469,7 +469,7 @@
     (set? form)
     (compile-set form)
     (keyword? form)
-    (pr-str (name form))
+    (pr-str (.substring (str form) 1))
     :default
     (str form)))
 
