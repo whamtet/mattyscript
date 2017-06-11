@@ -441,7 +441,7 @@
   [[kw & rest :as v]]
   (if (keyword? kw)
     (do
-      (assert (or (< (count v) 2) (map? (second v))))
+      (assert (or (< (count v) 2) (map? (second v)) (seq? (second v))) (pr-str v))
       (compile-invoke (concat ['h (symbolize kw)] rest)))
     (format "[%s]" (apply str (interpose ", " (map compile v))))))
 
