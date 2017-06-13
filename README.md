@@ -184,10 +184,11 @@ The best has been saved for last.  Macros are defined in Clojure land
 (defmacro my-macro [arg1 arg2] ...)
 ```
 
-To invoke them wrap them in an `expand` form
+You may also run arbitary Clojure code by wrapping it in an `eval` block.
 
 ```clojure
-(expand (my-macro arg1 arg2))
+(eval
+  (println "I am useless"))
 ```
 
 ## Pull Requests

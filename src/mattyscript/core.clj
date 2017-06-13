@@ -495,7 +495,15 @@
         (= 'defmacro f) (str (binding [*ns* (find-ns 'user)] (eval form)))
         (= 'eval f) (str (binding [*ns* (find-ns 'user)]
                            (eval `(do ~@(rest form)))))
-        (= 'expand f) (binding [*ns* (find-ns 'user)] (macroexpand arg))
+        (= 'expand f) (binding [*ns* (find-ns 'user)] (macroexpand-special (macroexpand-1 arg)))
+        ;finally expand if its a macro defined in user
+        (and (symbol? f) (not (.contains (str f) ".")))
+        (let [
+               {:keys [ns macro]} (meta (ns-resolve 'user f))
+               ]
+          (if (and macro (= ns (find-ns 'user)))
+            (binding [*ns* (find-ns 'user)] (macroexpand-special (macroexpand-1 form)))
+            form))
         :default form))
     form))
 
