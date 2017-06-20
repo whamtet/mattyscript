@@ -133,12 +133,11 @@
            #(str "return " (compile %) ";\n")
            statements)))
 
-(defn compile-fn [[_ name arg-list & forms]]
+(defn compile-fn [[_ name doc-str arg-list :as forms]]
   (let [
-         [name arg-list forms]
-         (if (vector? name)
-           ["function" name (conj forms arg-list)]
-           [(compile-symbol name) arg-list forms])
+         arg-list (some #(if (vector? %) %) [name doc-str arg-list])
+         forms (rest (drop-while #(not (vector? %)) forms))
+         name (if (symbol? name) (compile-symbol name) "function")
          simple-binding? #(and (not= '& %) (symbol? %))
          do-statements (if (= "constructor" name) (apply str (map #(str (compile %) ";\n") forms)) (do-statements forms))
          ]
