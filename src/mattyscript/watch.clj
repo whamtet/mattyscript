@@ -59,5 +59,10 @@
            ]
       (spit-script out ns target-index? (apply str (interpose "\n" (map #_core/expand-compile core/rename-compile forms)))))))
 
-(defonce watcher (safe-watcher ["../src-mattyscript"] (make-handler "../src-preact")))
-(defonce watcher2 (safe-watcher ["../src-mattyscript2"] (make-handler "../src-react")))
+(defn -main [& args]
+  (doseq [[src target] (partition 2 args)]
+    (println "watcher from" src "to" target)
+    (safe-watcher [src] (make-handler target))))
+
+;(defonce watcher (safe-watcher ["../src-mattyscript"] (make-handler "../src-preact")))
+;(defonce watcher2 (safe-watcher ["../src-mattyscript2"] (make-handler "../src-react")))
