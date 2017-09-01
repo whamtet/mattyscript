@@ -195,58 +195,46 @@
 ;; for and doseq
 ;;
 
-(defn parse-bindings [v]
-  (let [
-         v (partition 2 v)
-         ]
-    (loop [
-            done []
-            curr {}
-            todo v
-            ]
-      (if-let [[k v] (first todo)]
-        (cond
-          (keyword? k)
-          (recur done (assoc curr k v) (next todo))
-          (empty? curr)
-          (recur done {:bindings k :seq v} (next todo))
-          :default
-          (recur (conj done curr) {} todo))
-        (conj done curr)))))
-
 (defn named-format [s m]
   (reduce (fn [s [k v]] (.replace s (str k) (str v))) s m))
 (defmacro keyzip [& syms]
   `(zipmap ~(mapv keyword syms) ~(vec syms)))
 
-(defn compile-ring [array [{:keys [bindings seq while when] sublet :let} & rings] body]
+(defn compile-ring-args [[[kw form] & rest]]
+  (condp = kw
+    :let (str (compile-let-args form) (compile-ring-args rest))
+    :when (format "if (!(%s)) return;\n%s" (compile form) (compile-ring-args rest))
+    :while (throw (Exception. "while-clause unimplemented"))
+    nil "" ;end of args
+    (throw (Exception. "invalid ring arg"))))
+
+(defn compile-ring [array [[bindings seq] & rest] body]
   (let [
+         [kws rings] (split-with #(keyword? (first %)) rest)
          parent-var (gensym "parent_")
          index-var (gensym "index_")
-         parent-binding (format "var %s = %s;\n" parent-var (compile seq))
-         sublet (concat [bindings `(~'get ~parent-var ~index-var)] sublet)
-         sublet (compile-let-args sublet)
-         while-clause (if while (throw (Exception. "while-clause unimplemented")) #_(format "if (!(%s)) break;\n" (compile while)))
-         when-clause (if when (format "if (!(%s)) return;\n" (compile when)))
+         parent-binding (format "var %s = %s;\n" parent-var (compile seq)) ;so we don't recalculate it every time
+         kws (conj kws [:let [bindings `(~'get ~parent-var ~index-var)]])
+         kws (compile-ring-args kws)
          body (cond
                 (not-empty rings) (compile-ring array rings body)
                 array (format "%s.push(%s);\n" array (compile body))
                 :default (apply str (interpose ";\n" (map compile body))))
          ]
     (named-format ":parent-bindingfor(var :index-var = 0;:parent-var && :parent-var.length && :index-var < :parent-var.length; :index-var++) {
-                  (function() {:sublet:while-clause:when-clause:body}).call(this)}"
-                  (keyzip parent-binding parent-var index-var sublet body while-clause when-clause))))
+                  (function() {:kws:body}).call(this)}"
+                  (keyzip parent-binding parent-var index-var kws body))))
 
 
 (defn compile-doseq [[bindings & body]]
-  (format "(function() {%s}).call(this)" (compile-ring nil (parse-bindings bindings) body)))
+  (format "(function() {%s}).call(this)" (compile-ring nil (partition 2 bindings) body)))
 
 (defn compile-for [[bindings body]]
   (let [array (str (gensym "array_"))]
     (format "(function() {
             var %s = []
             %s
-            return %s}).call(this)" array (compile-ring array (parse-bindings bindings) body) array)))
+            return %s}).call(this)" array (compile-ring array (partition 2 bindings) body) array)))
 ;;
 ;; end for, doseq
 ;;
