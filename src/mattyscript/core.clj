@@ -63,10 +63,10 @@
     (symbol? v) (format "var %s = %s[%s];\n" (compile-symbol v) parent-var i)
     (vector? v)
     (let [s (str (gensym))]
-      (format "var %s = %s[%s];\n%s" s parent-var i (compile-vector-arg s v)))
+      (format "var %s = %s[%s] || [];\n%s" s parent-var i (compile-vector-arg s v)))
     (map? v)
     (let [s (str (gensym))]
-      (format "var %s = %s[%s];\n%s" s parent-var i (compile-map-arg s v)))
+      (format "var %s = %s[%s] || {};\n%s" s parent-var i (compile-map-arg s v)))
     :default
     (throw (Exception. (format "Impossible compile-arg %s %s %s" parent-var i v)))))
 
@@ -75,10 +75,10 @@
     (symbol? k) (format "var %s = %s;\n" (compile-symbol k) (compile v))
     (vector? k)
     (let [s (str (gensym))]
-      (format "var %s = %s;\n%s" s (compile v) (compile-vector-arg s k)))
+      (format "var %s = %s || [];\n%s" s (compile v) (compile-vector-arg s k)))
     (map? k)
     (let [s (str (gensym))]
-      (format "var %s = %s;\n%s" s (compile v) (compile-map-arg s k)))
+      (format "var %s = %s || {};\n%s" s (compile v) (compile-map-arg s k)))
     :default
     (throw (Exception. (format "Impossible let-arg %s %s" k v)))))
 
@@ -190,23 +190,6 @@
   (if alt
     (format "((%s)[%s] || %s)" (compile m) (compile k) (compile alt))
     (format "(%s)[%s]" (compile m) (compile k))))
-
-#_(defn compile-get-in [[m v alt]]
-    (let [
-           prefix (apply str (compile m) (map #(format "[%s]" (compile %)) v))
-           ]
-      (if alt
-        (format "(%s || %s)" prefix (compile alt))
-        prefix)))
-
-#_(defn compile-assoc [[m k value]]
-    (format "%s[%s] = %s" (compile m) (compile k) (compile value)))
-
-#_(defn compile-dissoc [[m & ks]]
-    (let [
-           m (compile m)
-           ]
-      (map-str #(format "delete %s[%s]" m (compile %)) ks)))
 
 ;;
 ;; for and doseq

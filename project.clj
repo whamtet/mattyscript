@@ -5,4 +5,5 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.8.0"]
                  [hawk "0.2.10"]
+                 [rhizome "0.2.7"] ;for deps management
                  ])
