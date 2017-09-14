@@ -10,7 +10,7 @@
 (defn read-file [f]
   (read-string (format "[%s]" (slurp f))))
 
-(defn spit-script [dir ns target-index? s]
+(defn spit-script [dir ns target-index? s suffix]
   (let [
          ns (.replace (str ns) "-" "_")
          elements (.split ns "\\.")
@@ -18,8 +18,8 @@
                   (apply str (interpose "/" (concat [dir] elements)))
                   (apply str (interpose "/" (concat [dir] (butlast elements)))))
          f (if target-index?
-             (str parent "/index.jsx")
-             (str parent "/" (last elements) ".jsx"))
+             (str parent "/index" suffix)
+             (str parent "/" (last elements) suffix))
          ]
     (.mkdirs (File. parent))
     (spit f (format "//Compiled by Mattyscript %s\n%s" project-version s))))
@@ -50,19 +50,22 @@
                    :filter (fn [_ {:keys [file kind]}] (and (= :modify kind) (.isFile file) (.endsWith (.getName file) ".cljs")))
                    :handler handler2}])))
 
-(defn make-handler [out]
+(defn make-handler [out suffix]
   (fn handler [{:keys [file]}]
     (println "handling" file)
     (let [
            [[_ ns & ns-opts] & forms] (read-file file)
            target-index? (some #(and (coll? %) (= :index (first %))) ns-opts)
            ]
-      (spit-script out ns target-index? (apply str (interpose "\n" (map #_core/expand-compile core/rename-compile forms)))))))
+      (spit-script out ns target-index? (apply str (interpose "\n" (map core/rename-compile forms))) suffix))))
 
 (defn -main [& args]
-  (doseq [[src target] (partition 2 args)]
-    (println "watcher from" src "to" target)
-    (safe-watcher [src] (make-handler target))))
-
-;(defonce watcher (safe-watcher ["../src-mattyscript"] (make-handler "../src-preact")))
-;(defonce watcher2 (safe-watcher ["../src-mattyscript2"] (make-handler "../src-react")))
+  (let [args (partition 2 args)
+        [last-flag suffix] (last args)
+        [args suffix]
+        (if (= "--suffix" last-flag)
+          [(butlast args) suffix]
+          [args ".jsx"])]
+    (doseq [[src target] args]
+      (println "watcher from" src "to" target)
+      (safe-watcher [src] (make-handler target suffix)))))
