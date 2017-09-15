@@ -134,16 +134,18 @@
            statements)))
 
 (defn compile-fn [[_ name doc-str arg-list :as forms]]
-  (let [
-         arg-list (some #(if (vector? %) %) [name doc-str arg-list])
-         forms (rest (drop-while #(not (vector? %)) forms))
-         name (if (symbol? name) (compile-symbol name) "function")
-         simple-binding? #(and (not= '& %) (symbol? %))
-         do-statements (if (= "constructor" name) (apply str (map #(str (compile %) ";\n") forms)) (do-statements forms))
-         ]
-    (if (every? simple-binding? arg-list)
-      (format "%s(%s){\n%s}\n" name (apply str (interpose ", " (map compile-symbol arg-list))) do-statements)
-      (format "%s(){\n%s%s}\n" name (compile-arg-list arg-list) do-statements))))
+  (if (= '(fn* [] ()) forms)
+    "function(){}"
+    (let [
+           arg-list (some #(if (vector? %) %) [name doc-str arg-list])
+           forms (rest (drop-while #(not (vector? %)) forms))
+           name (if (symbol? name) (compile-symbol name) "function")
+           simple-binding? #(and (not= '& %) (symbol? %))
+           do-statements (if (= "constructor" name) (apply str (map #(str (compile %) ";\n") forms)) (do-statements forms))
+           ]
+      (if (every? simple-binding? arg-list)
+        (format "%s(%s){\n%s}\n" name (apply str (interpose ", " (map compile-symbol arg-list))) do-statements)
+        (format "%s(){\n%s%s}\n" name (compile-arg-list arg-list) do-statements)))))
 
 (defn compile-class [[name & [superclass & methods :as all-methods]]]
   (cond
@@ -272,8 +274,8 @@
   (format "while(%s){%s}" (compile condition) (apply str (interpose "; " (map compile body)))))
 
 (defn compile-seq [[type & args :as form]]
-  ;(println "compile-seq" form)
   (cond
+    (empty? form) "[]"
     ;;
     ;; json=
     ;;
@@ -487,3 +489,4 @@
                                    } % %) form)))
 
 ;(def rename-compile expand-compile)
+
