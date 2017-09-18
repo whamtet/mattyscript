@@ -464,7 +464,7 @@
             } f)
         (macroexpand-special (macroexpand-1 form))
         (.endsWith (str f) ".") (macroexpand-1 form)
-        (= 'defmacro f) (str (binding [*ns* (find-ns 'user)] (eval form)))
+        (= 'defmacro f) (do (binding [*ns* (find-ns 'user)] (eval form)) nil)
         (= 'eval f) (str (binding [*ns* (find-ns 'user)]
                            (eval `(do ~@(rest form)))))
         (= 'expand f) (binding [*ns* (find-ns 'user)] (macroexpand-special (macroexpand-1 arg)))
