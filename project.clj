@@ -6,4 +6,5 @@
   :dependencies [[org.clojure/clojure "1.8.0"]
                  [hawk "0.2.10"]
                  [rhizome "0.2.7"] ;for deps management
+                 [clj-tcp "1.0.1"]
                  ])
