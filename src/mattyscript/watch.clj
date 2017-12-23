@@ -88,4 +88,4 @@
     (doseq [[src target] compile]
       (println "watcher from" src "to" target)
       (safe-watcher [src] (src-handler target suffix)))
-    (safe-watcher-file outputs refresher/notify!)))
+    (safe-watcher-files outputs refresher/notify!)))

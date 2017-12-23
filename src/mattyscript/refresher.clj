@@ -1,10 +1,10 @@
 (ns mattyscript.refresher
   (:require [org.httpkit.server :as httpkit]))
 
-(def channel (atom nil))
+(def channels (atom #{}))
 (defn notify! [& _]
-  (when-let [ch @channel]
-    (httpkit/send! ch "refresh")))
+  (doseq [channel @channels]
+    (httpkit/send! channel "refresh")))
 
 (defmacro with-open-cors-channel
   "Opens an http streaming response with the correct headers for cors.
@@ -22,8 +22,11 @@
 
 (defn handler [{:keys [websocket?] :as req}]
   (if websocket?
-    (with-open-cors-channel req ch
-      (reset! channel ch))
+    (with-open-cors-channel req channel
+      (swap! channels conj channel)
+      (httpkit/on-close channel
+                        (fn [status]
+                          (swap! channels disj channel))))
     {:status 200
      :headers {"Content-Type" "application/javascript"}
      :body "window.ws = new WebSocket('ws://localhost:5565');
