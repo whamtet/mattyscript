@@ -1,9 +1,10 @@
 (ns mattyscript.watch
   (:require [hawk.core :as hawk]
             [mattyscript.core :as core]
-            ))
-
-(import java.io.File)
+            [mattyscript.refresher :as refresher])
+  (:import java.io.File
+           java.nio.file.Files
+           java.nio.file.Paths))
 
 (def project-version (-> "project.clj" slurp read-string (nth 2)))
 
@@ -50,7 +51,20 @@
                    :filter (fn [_ {:keys [file kind]}] (and (= :modify kind) (.isFile file) (.endsWith (.getName file) ".cljs")))
                    :handler handler2}])))
 
-(defn make-handler [out suffix]
+(defn ->path [s]
+  (Paths/get s (make-array String 0)))
+
+(defn safe-watcher-files
+  "safe-watcher for a set of files"
+  [files handler]
+  (let [paths (map ->path files)]
+    (hawk/watch! [{:paths [(-> files first File. .getParent)]
+                   :filter (fn [_ {:keys [file]}]
+                             (let [path (-> file .getAbsolutePath ->path)]
+                               (some #(Files/isSameFile path %) paths)))
+                   :handler handler}])))
+
+(defn src-handler [out suffix]
   (fn handler [{:keys [file]}]
     (println "handling" file)
     (let [
@@ -59,13 +73,19 @@
            ]
       (spit-script out ns target-index? (apply str (interpose "\n" (map core/rename-compile forms))) suffix))))
 
+(defn parse-args [args]
+  (loop [todo args
+         done {:compile [] :outputs []}]
+    (if-let [flag (first todo)]
+      (case flag
+        "--compile" (recur (drop 3 todo) (update done :compile conj (take 2 (rest todo))))
+        "--suffix" (recur (drop 2 todo) (assoc done :suffix (second todo)))
+        "--output" (recur (drop 2 todo) (update done :outputs conj (second todo))))
+      done)))
+
 (defn -main [& args]
-  (let [args (partition 2 args)
-        [last-flag suffix] (last args)
-        [args suffix]
-        (if (= "--suffix" last-flag)
-          [(butlast args) suffix]
-          [args ".jsx"])]
-    (doseq [[src target] args]
+  (let [{:keys [compile outputs suffix] :or {suffix ".jsx"}} (parse-args args)]
+    (doseq [[src target] compile]
       (println "watcher from" src "to" target)
-      (safe-watcher [src] (make-handler target suffix)))))
+      (safe-watcher [src] (src-handler target suffix)))
+    (safe-watcher-file outputs refresher/notify!)))

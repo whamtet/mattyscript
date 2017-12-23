@@ -7,4 +7,5 @@
                  [hawk "0.2.10"]
                  [rhizome "0.2.7"] ;for deps management
                  [clj-tcp "1.0.1"]
+                 [http-kit "2.2.0"]
                  ])
