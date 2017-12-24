@@ -75,7 +75,7 @@
 
 (defn parse-args [args]
   (loop [todo args
-         done {:compile [] :outputs []}]
+         done {:compile [] :outputs [] :suffix ".jsx"}]
     (if-let [flag (first todo)]
       (case flag
         "--compile" (recur (drop 3 todo) (update done :compile conj (take 2 (rest todo))))
@@ -84,7 +84,7 @@
       done)))
 
 (defn -main [& args]
-  (let [{:keys [compile outputs suffix] :or {suffix ".jsx"}} (parse-args args)]
+  (let [{:keys [compile outputs suffix]} (parse-args args)]
     (doseq [[src target] compile]
       (println "watcher from" src "to" target)
       (safe-watcher [src] (src-handler target suffix)))
