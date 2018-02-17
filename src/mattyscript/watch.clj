@@ -45,7 +45,7 @@
                       (try (handler e) (catch Exception e (println e)))))
          ]
     ;warmup compile
-    (doseq [f (mapcat src-files paths)]
+    (doseq [f (sort (mapcat src-files paths))]
       (handler {:file f}))
     (hawk/watch! [{:paths (mapcat subdirs paths)
                    :filter (fn [_ {:keys [file kind]}] (and (= :modify kind) (.isFile file) (.endsWith (.getName file) ".cljs")))
